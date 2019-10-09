@@ -13,13 +13,16 @@
 // Assume that each segment has at most 256 characters (including NULL)
 #define MAX_SEGMENT_LENGTH 256
 
+#define DELIMITER "|"
+
 /*
   Function  Prototypes
  */
 void show_prompt();
 int get_cmd_line(char *cmdline);
 void process_cmd(char *cmdline);
-void **tokenize(char **argv, char *line, int *numTokens, char *token);
+char **tokenize(char *cmdline);
+// void **tokenize(char **argv, char *line, int *numTokens, char *token);
 
 
 /* The main function implementation */
@@ -54,6 +57,37 @@ int main()
 void process_cmd(char *cmdline)
 {
     printf("Debug: %s\n", cmdline); // delete this line to start your work
+    char **args = tokenize(cmdline);
+
+    int i = 0;
+    while (args[i] != NULL)
+    {
+        printf("%s\n", args[i]);
+        i++;
+    }
+    
+    if (strcmp(args[0], "exit") == 0)
+    {
+        printf("The shell program (pid=%d) ends\n", getpid());
+        exit(EXIT_SUCCESS);
+    }
+    else
+    {
+        pid_t pid = fork();
+        pid_t wpid;
+        int status;
+        if (pid == 0)
+        {
+            execvp(args[0], args);
+        }
+        else
+        {
+            do 
+            {
+                wpid = waitpid(pid, &status, WUNTRACED);
+            } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        }
+    }
 }
 
 
@@ -82,15 +116,30 @@ int get_cmd_line(char *cmdline)
     return 0;
 }
 
-void **tokenize(char **argv, char *line, int *numTokens, char *delimiter)
+
+char **tokenize(char *cmdline)
 {
     int argc = 0;
-    char *token = strtok(line, delimiter);
+    char **argv = malloc(MAX_PIPE_SEGMENTS * sizeof(char *));
+    char *token = strtok(cmdline, DELIMITER);
     while (token != NULL)
     {
         argv[argc++] = token;
-        token = strtok(NULL, delimiter);
+        token = strtok(NULL, DELIMITER);
     }
     argv[argc++] = NULL;
-    *numTokens = argc - 1;
+    return argv;
 }
+
+// void **tokenize(char **argv, char *line, int *numTokens, char *delimiter)
+// {
+//     int argc = 0;
+//     char *token = strtok(line, delimiter);
+//     while (token != NULL)
+//     {
+//         argv[argc++] = token;
+//         token = strtok(NULL, delimiter);
+//     }
+//     argv[argc++] = NULL;
+//     *numTokens = argc - 1;
+// }
