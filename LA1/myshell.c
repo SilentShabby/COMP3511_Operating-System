@@ -21,7 +21,7 @@
 void show_prompt();
 int get_cmd_line(char *cmdline);
 void process_cmd(char *cmdline);
-char **tokenize(char *cmdline, char *delimiter);
+char **tokenize(char *cmdline, char *delimiter, int size);
 // void **tokenize(char **argv, char *line, int *numTokens, char *token);
 
 
@@ -42,52 +42,81 @@ int main()
 }
 
 /* 
-    Implementation of process_cmd
+    Explanation of implementation of process_cmd
 
-    TODO: Clearly explain how you implement process_cmd in point form. For example:
-
-    Step 1: ....
-    Step 2: ....
-        Step 2.1: .....
-        Step 2.2: .....
-            Step 2.2.1: .....
-    Step 3: ....
+    Step 1: split the input line cmdline with the delimiter "|" to different parts of commands(I modify the split function)
+    Step 2: check if the first command is "exit"(here I suggest that there won't be commands with "exit" in pipes)
+        Step 2.1: print the shell program information
+        Step 2.2: call the exit function to terminate process
+    Step 3: count the number of different parts of commands by iteration
+    Step 4: copy the origin in and out file descriptor
+    Step 5: iterations of execute different parts of commands
+        Step 5.1: split the current part with the delimiter " " to get arguments of the command
+        Step 5.2: judge if now is the final command to be excuted
+            Step 5.2.1 if it is the last one, make the out back to the origin out
+            Step 5.2.2 if it is not the last one, open a pipe to connect the first part stdout to the second part stdin
+        Step 5.3: fork a child process to excute commands
+    Step 6: reset the stdin and stdout to the original status
+    Step 7: wait for all processes to end
 
  */
 void process_cmd(char *cmdline)
 {
-    printf("Debug: %s\n", cmdline); // delete this line to start your work
-    char **args = tokenize(cmdline, " ");
-
-    int i = 0;
-    while (args[i] != NULL)
-    {
-        printf("%s\n", args[i]);
-        i++;
-    }
+    char **multi_args = tokenize(cmdline, "|", MAX_PIPE_SEGMENTS);
     
-    if (strcmp(args[0], "exit") == 0)
+    if (strcmp(multi_args[0], "exit") == 0)
     {
         printf("The shell program (pid=%d) ends\n", getpid());
         exit(EXIT_SUCCESS);
     }
-    else
+
+    int length = 0;
+    while (multi_args[length] != NULL)
     {
-        pid_t pid = fork();
-        pid_t wpid;
-        int status;
-        if (pid == 0)
+        length++;
+    }
+
+    pid_t pid, wpid;
+    char **args;
+    int status;
+    int origin_in = dup(0);
+    int origin_out = dup(1);
+    int fin = dup(0);
+    int fout = dup(1);
+    int i;
+    for (i = 0; i < length; i++)
+    {
+        args = tokenize(multi_args[i], " ", MAX_CMDLINE_LEN);
+        dup2(fin, 0);
+        close(fin);
+        if (i == length - 1)
         {
-            execvp(args[0], args);
+            fout = dup(origin_out);
         }
         else
         {
-            do 
-            {
-                wpid = waitpid(pid, &status, WUNTRACED);
-            } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+            int pfds[2];
+            pipe(pfds);
+            fin = pfds[0];
+            fout = pfds[1];
         }
+        dup2(fout, 1);
+        close(fout);
+
+        pid = fork();
+        if (pid == 0)
+        {
+            execvp(args[0], args);
+        }    
     }
+    dup2(origin_in, 0);
+    dup2(origin_out, 1);
+    close(origin_in);
+    close(origin_out);
+    do 
+    {
+        wpid = waitpid(pid, &status, WUNTRACED);
+    } while (!WIFEXITED(status) && !WIFSIGNALED(status));
 }
 
 
@@ -117,10 +146,10 @@ int get_cmd_line(char *cmdline)
 }
 
 
-char **tokenize(char *cmdline, char *delimiter)
+char **tokenize(char *cmdline, char *delimiter, int size)
 {
     int argc = 0;
-    char **argv = malloc(MAX_PIPE_SEGMENTS * sizeof(char *));
+    char **argv = malloc(size * sizeof(char *));
     char *token = strtok(cmdline, delimiter);
     while (token != NULL)
     {
