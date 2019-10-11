@@ -21,7 +21,7 @@
 void show_prompt();
 int get_cmd_line(char *cmdline);
 void process_cmd(char *cmdline);
-char **tokenize(char *cmdline);
+char **tokenize(char *cmdline, char *delimiter);
 // void **tokenize(char **argv, char *line, int *numTokens, char *token);
 
 
@@ -57,7 +57,7 @@ int main()
 void process_cmd(char *cmdline)
 {
     printf("Debug: %s\n", cmdline); // delete this line to start your work
-    char **args = tokenize(cmdline);
+    char **args = tokenize(cmdline, " ");
 
     int i = 0;
     while (args[i] != NULL)
@@ -117,15 +117,15 @@ int get_cmd_line(char *cmdline)
 }
 
 
-char **tokenize(char *cmdline)
+char **tokenize(char *cmdline, char *delimiter)
 {
     int argc = 0;
     char **argv = malloc(MAX_PIPE_SEGMENTS * sizeof(char *));
-    char *token = strtok(cmdline, DELIMITER);
+    char *token = strtok(cmdline, delimiter);
     while (token != NULL)
     {
         argv[argc++] = token;
-        token = strtok(NULL, DELIMITER);
+        token = strtok(NULL, delimiter);
     }
     argv[argc++] = NULL;
     return argv;
