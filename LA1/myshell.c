@@ -56,6 +56,7 @@ int main()
             Step 5.2.1 if it is the last one, make the out back to the origin out
             Step 5.2.2 if it is not the last one, open a pipe to connect the first part stdout to the second part stdin
         Step 5.3: fork a child process to excute commands
+        Step 5.4: wait for the child process to end and start the next execution
     Step 6: reset the stdin and stdout to the original status
     Step 7: wait for all processes to end
 
@@ -107,16 +108,20 @@ void process_cmd(char *cmdline)
         if (pid == 0)
         {
             execvp(args[0], args);
-        }    
+        }
+        else
+        {
+            do 
+            {
+                wpid = waitpid(pid, &status, WUNTRACED);
+            } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        }
+            
     }
     dup2(origin_in, 0);
     dup2(origin_out, 1);
     close(origin_in);
     close(origin_out);
-    do 
-    {
-        wpid = waitpid(pid, &status, WUNTRACED);
-    } while (!WIFEXITED(status) && !WIFSIGNALED(status));
 }
 
 
